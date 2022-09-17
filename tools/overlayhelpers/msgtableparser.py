@@ -113,32 +113,65 @@ class MessageTable:
                     data.extend(struct.pack(">L", int(line.split("0x")[1].rstrip(),16)))
         return MessageTable(address, data)
 
+    def __str__(self):
+        return f"Message Table at 0x{self.addr:08X} containing {len(self)} entries."
 
+    def __repr__(self):
+        return f"MessageTable(0x{self.addr:08X}, bytearray(...))"
+
+
+def get_msgtable(address:str):
+    try:
+        msg_table = MessageTable.make_from_address(address)
+    except ValueError:
+        print(f"Error: Unable to parse MessageTable at 0x{address:08X}")
+        exit(-1)
+    return msg_table
+
+ALL_KNOWN_MESSAGETABLES = (0x801C6B98, 0x801CED40, 0x801CFB08)
 def main():
     parser = argparse.ArgumentParser(description="Parses message table")
-    parser.add_argument('address', help="VRAM or ROM address to parse (D_801C6B98, D_801CED40, D_801CFB08, others?)", type=lambda s : int(s.replace("D_", "0x"), 16))
-    parser.add_argument('text_id', help="textId to print to the console", nargs='?', default=-1, type=lambda s : int(s,0))
+    parser.add_argument('-a', '--address', help=f"VRAM or ROM address to parse ({', '.join(hex(a) for a in ALL_KNOWN_MESSAGETABLES)})", default=None, type=lambda s : int(s.replace("D_", "0x"), 16))
+    parser.add_argument('-id', '--text_id', help="textId to print to the console", default=None, type=lambda s : int(s,0))
     args = parser.parse_args()
-
-    try:
-        msg_table = MessageTable.make_from_address(args.address)
-    except ValueError:
-        print(f"Error: Unable to parse MessageTable at 0x{args.address:08X}")
-        exit(-1)
+    
+    # Parse specified table, or all known tables.
+    print("Parsing Message Tables...")
+    possible_msg_tables = list()
+    if args.address is not None:
+        possible_msg_tables.append(get_msgtable(args.address))
     else:
-        print(msg_table.summary())
+        for addr in ALL_KNOWN_MESSAGETABLES:
+            possible_msg_tables.append(get_msgtable(addr))
+    
+    print(f"Message Table Candidates:")
+    for msgtbl in possible_msg_tables:
+        print(f"  {msgtbl}")
+    
 
-        if args.text_id != -1:
-            print("\nSelected Message:")
+    if args.text_id != None:
+        found = False
+        errors = list()
+        print(f"Searching for specified text_id: {args.text_id} (0x{args.text_id:X})...")
+        for msg_table in possible_msg_tables:
             try:
                 entry = next(filter(lambda x: x.text_id == args.text_id, msg_table))
             except StopIteration:
-                print(f"  Error: Unable to find TextId: 0x{args.text_id:X} in MessageTable at 0x{args.address:08X}")
-                exit(-1)
+                errors.append(f"  Error: Unable to find TextId: 0x{args.text_id:X} in MessageTable at 0x{msg_table.addr:08X}")
             else:
-                print(f"  {entry}")
+                print(f"\n{entry}")
                 entry.message.dump()
-
+                found = True
+                break;
+        if not found:
+            for err in errors:
+                print(err)
+    else:
+        print(f"Printing all messages found...")
+        for msg_table in possible_msg_tables:
+            for entry in msg_table:
+                print(f"\n{entry}")
+                entry.message.dump()
 
 if __name__ == "__main__":
     main()
