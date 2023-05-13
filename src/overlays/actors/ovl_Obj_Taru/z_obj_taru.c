@@ -67,8 +67,8 @@ s32 func_80B9B6E0(ObjTaru* this, PlayState* play) {
     s32 chestFlag = -1;
     s32 skulltulaParams = (OBJ_TSUBO_P001F(&this->dyna.actor) * 4) | 0xFF01;
 
-    if (ENSW_GETS_3(skulltulaParams)) {
-        chestFlag = ENSW_GETS_3FC(skulltulaParams);
+    if (ENSW_PARAM_GET_TYPE(skulltulaParams)) {
+        chestFlag = ENSW_PARAM_GET_CHESTFLAG(skulltulaParams);
     }
 
     return (chestFlag < 0) == true || !Flags_GetTreasure(play, chestFlag);
